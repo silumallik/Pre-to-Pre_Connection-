@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAIR — One-click screen sharing</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--ink:#171717;--paper:#f7f5ef;--line:#d8d5cc;--blue:#3978f6;--lime:#d8f36a;--muted:#77766f;--card:#fffefa}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+header{height:72px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;background:#fbfaf6;position:sticky;top:0;z-index:3}
+.brand{font-size:23px;font-weight:950;letter-spacing:-1.4px}.mark{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#171717;color:var(--lime);margin-right:9px}
+.pill,.status{border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:10px;font-weight:800}
+main{max-width:1150px;margin:auto;padding:38px 5vw 65px}.eyebrow{font-size:10px;letter-spacing:1.7px;font-weight:900;color:var(--blue);text-transform:uppercase}
+h1{font-size:clamp(46px,7vw,78px);letter-spacing:-4px;line-height:.92;margin:12px 0 16px}.lead{color:var(--muted);line-height:1.65;font-size:14px;max-width:620px}
+.grid{display:grid;grid-template-columns:1fr .85fr;gap:18px;margin-top:30px}.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:23px}
+h2{font-size:22px;letter-spacing:-1px;margin:7px 0}.sub{font-size:12px;color:var(--muted);line-height:1.55}
+label{display:block;font-size:10px;font-weight:900;letter-spacing:.7px;margin:15px 0 7px}
+input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font:12px ui-monospace,monospace;background:white;outline:none}input:focus{border-color:var(--blue)}
+button{border:0;border-radius:30px;padding:12px 17px;font-size:11px;font-weight:900;cursor:pointer;background:#171717;color:white}button.blue{background:var(--blue)}button.lime{background:var(--lime);color:#171717}button.ghost{background:transparent;border:1px solid var(--line);color:#171717}button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.status{display:inline-flex;gap:7px;align-items:center;background:#f2f0e9}.dot{width:7px;height:7px;border-radius:50%;background:#aaa}.dot.on{background:#1da65b;box-shadow:0 0 0 3px #1da65b20}
+#qr{background:white;padding:12px;border:1px solid var(--line);border-radius:14px;display:inline-block;min-height:150px;min-width:150px}#qr img,#qr canvas{display:block}
+.room{font:900 24px ui-monospace,monospace;letter-spacing:3px;margin:8px 0}
+.preview{background:#171717;border-radius:14px;min-height:270px;display:grid;place-items:center;color:#ddd;position:relative;overflow:hidden}
+video{width:100%;max-height:430px;object-fit:contain;display:none}.empty{text-align:center;padding:25px}.empty b{display:block;color:white;margin-bottom:7px}.empty small{color:#aaa}
+.steps{display:grid;gap:13px;margin-top:16px}.step{display:flex;gap:11px}.num{border:1px solid var(--line);border-radius:50%;width:25px;height:25px;display:grid;place-items:center;font-size:10px;flex:none}.step b{font-size:12px}.step p{margin:3px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.notice{font-size:11px;line-height:1.55;color:#6b6659;background:#f4f1e7;border-radius:10px;padding:12px;margin-top:14px}
+footer{margin-top:40px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:10px}
+.hidden{display:none!important}
+@media(max-width:760px){.grid{grid-template-columns:1fr}header{padding:0 6vw}main{padding-left:6vw;padding-right:6vw}h1{letter-spacing:-2.5px}}
+</style></head>
+<body>
+<header><div class="brand"><span class="mark">↗</span>PAIR <span style="font-size:9px;color:#999;letter-spacing:1px">/ INSTANT LINK</span></div><span class="pill">WEBRTC · PEER TO PEER</span></header>
+<main>
+<div class="eyebrow">A private window between devices</div><h1>Connect.<br>Scan. Share.</h1>
+<p class="lead">Create a room, scan its QR code on another device, and connect without copying offers or answers. The sharer always chooses what to share.</p>
+<div class="grid">
+<section class="panel">
+ <div class="eyebrow">01 / Connection setup</div><h2>One-click pairing</h2>
+ <p class="sub">Enter your deployed signaling server address. Both devices must use the same server. For local testing, use <b>ws://localhost:3000</b>.</p>
+ <label>WEBSOCKET SIGNALING SERVER</label><input id="server" value="ws://localhost:3000" placeholder="wss://your-signaling-server.example">
+ <div class="row"><button class="blue" id="hostBtn">Share this screen</button><button class="ghost" id="joinBtn">Join a room</button></div>
+ <div id="hostPanel" class="hidden">
+  <label>SCAN THIS QR WITH THE OTHER DEVICE</label><div id="qr"></div><div class="room" id="roomCode">------</div>
+  <div class="row"><button class="ghost" id="copyLink">Copy invite link</button><button class="ghost" id="stopBtn">Stop session</button></div>
+  <p class="sub" id="hostHint">Waiting for someone to scan and join…</p>
+ </div>
+ <div id="joinPanel" class="hidden">
+  <label>ROOM CODE</label><input id="roomInput" placeholder="Enter 6-character room code" maxlength="6">
+  <div class="row"><button class="lime" id="joinRoomBtn">Connect to room</button></div>
+ </div>
+ <div class="notice">Screen capture requires HTTPS (or localhost) and an explicit browser permission. A signaling server is required for automatic discovery; setup files are included below.</div>
+</section>
+<section class="panel">
+ <div class="eyebrow">02 / Live monitor</div><h2>Screen preview</h2><div style="margin:12px 0"><span class="status"><i class="dot" id="dot"></i><span id="state">Not connected</span></span></div>
+ <div class="preview"><div class="empty" id="empty"><div style="font-size:34px">▣</div><b>Waiting for a live screen</b><small>Your connected device appears here.</small></div><video id="video" autoplay playsinline></video></div>
+ <div class="steps"><div class="step"><span class="num">1</span><div><b>Host creates a private room</b><p>A short room code and QR invite are generated.</p></div></div><div class="step"><span class="num">2</span><div><b>Viewer scans or enters the code</b><p>The signaling server exchanges WebRTC setup messages automatically.</p></div></div><div class="step"><span class="num">3</span><div><b>Live peer-to-peer stream</b><p>After permission and connection, the viewer sees the shared screen.</p></div></div></div>
+</section>
+</div>
+<footer>PAIR / PRIVATE SCREEN SHARING · Signaling server relays connection metadata only; screen media travels over WebRTC when direct connectivity is available.</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let ws=null,pc=null,stream=null,room=null,role=null,inviteUrl=null;
+const rtcConfig={iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+function status(s,on=false){$("state").textContent=s;$("dot").classList.toggle("on",on)}
+function code(){return Math.random().toString(36).slice(2,8).toUpperCase()}
+function send(data){if(!ws||ws.readyState!==WebSocket.OPEN)throw Error("Signaling server is not connected.");ws.send(JSON.stringify(data))}
+function connectSocket(url){return new Promise((resolve,reject)=>{try{ws=new WebSocket(url)}catch(e){reject(e);return}const timer=setTimeout(()=>reject(Error("Signaling server connection timed out.")),7000);ws.onopen=()=>{clearTimeout(timer);resolve()};ws.onerror=()=>{clearTimeout(timer);reject(Error("Cannot connect to signaling server. Check server URL and that it is running."))};ws.onmessage=e=>handleMessage(JSON.parse(e.data));ws.onclose=()=>{if(pc&&pc.connectionState!=="connected")status("Signaling server disconnected")}})}
+function waitIceGathering(peer){return new Promise(resolve=>{if(peer.iceGatheringState==="complete")return resolve();const done=()=>{if(peer.iceGatheringState==="complete"){peer.removeEventListener("icegatheringstatechange",done);resolve()}};peer.addEventListener("icegatheringstatechange",done);setTimeout(resolve,12000)})}\nfunction newPeer(){pc=new RTCPeerConnection(rtcConfig);pc.onconnectionstatechange=()=>{status(pc.connectionState==="connected"?"Live connection":pc.connectionState,pc.connectionState==="connected")};pc.ontrack=e=>{const v=$("video");v.srcObject=e.streams[0];v.style.display="block";$("empty").classList.add("hidden")};return pc}
+async function handleMessage(m){
+ try{
+  if(m.type==="peer-joined"&&role==="host"){
+   status("Viewer joined · preparing stream",true);
+   pc=newPeer();stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+   const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIceGathering(pc);send({type:"offer",room,sdp:pc.localDescription});
+  }else if(m.type==="offer"&&role==="viewer"){
+   if(!pc)newPeer();await pc.setRemoteDescription(m.sdp);const answer=await pc.createAnswer();await pc.setLocalDescription(answer);await waitIceGathering(pc);send({type:"answer",room,sdp:pc.localDescription});
+  }else if(m.type==="answer"&&role==="host"){await pc.setRemoteDescription(m.sdp)}
+  else if(m.type==="candidate"&&pc){try{await pc.addIceCandidate(m.candidate)}catch(e){console.warn("ICE candidate",e)}}
+  else if(m.type==="joined"){status("Joined room · waiting for sharer",true)}
+  else if(m.type==="error"){status(m.message||"Room error");alert(m.message||"Room error")}
+  else if(m.type==="peer-left"){status("Viewer disconnected")}
+ }catch(e){console.error(e);status("Connection error");alert(e.message)}
+}
+async function host(){
+ try{
+  if(!navigator.mediaDevices?.getDisplayMedia)throw Error("Screen sharing requires a supported desktop browser and HTTPS or localhost.");
+  stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+  role="host";room=code();status("Connecting to signaling server…");
+  await connectSocket($("server").value.trim());send({type:"create",room});
+  $("hostPanel").classList.remove("hidden");$("joinPanel").classList.add("hidden");$("roomCode").textContent=room;
+  inviteUrl=new URL(location.href);inviteUrl.searchParams.set("room",room);
+  $("qr").innerHTML="";new QRCode($("qr"),{text:inviteUrl.href,width:150,height:150,colorDark:"#171717",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  $("hostHint").textContent="Room ready. Scan the QR code from the viewer device.";
+  stream.getVideoTracks()[0].addEventListener("ended",stop);
+  status("Room ready · waiting for viewer",true);
+ }catch(e){status("Could not start");alert(e.message)}
+}
+async function join(roomCode){
+ try{role="viewer";room=roomCode.toUpperCase();status("Connecting…");await connectSocket($("server").value.trim());send({type:"join",room});$("hostPanel").classList.add("hidden");$("joinPanel").classList.remove("hidden")}
+ catch(e){status("Could not join");alert(e.message)}
+}
+async function stop(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}if(pc){pc.close();pc=null}if(ws){try{send({type:"leave",room})}catch{}ws.close();ws=null}status("Session stopped");$("hostPanel").classList.add("hidden")}
+$("hostBtn").onclick=host;$("joinBtn").onclick=()=>{$("joinPanel").classList.toggle("hidden");$("hostPanel").classList.add("hidden")};
+$("joinRoomBtn").onclick=()=>{const c=$("roomInput").value.trim();if(c.length!==6)return alert("Enter the 6-character room code.");join(c)};
+$("stopBtn").onclick=stop;$("copyLink").onclick=async()=>{try{await navigator.clipboard.writeText(inviteUrl.href);$("copyLink").textContent="Copied ✓"}catch{alert(inviteUrl.href)}};
+const params=new URLSearchParams(location.search);if(params.has("room")){$("joinPanel").classList.remove("hidden");$("roomInput").value=params.get("room").toUpperCase();$("joinRoomBtn").textContent="Join shared room";setTimeout(()=>join(params.get("room")),500)}
+</script></body></html>
